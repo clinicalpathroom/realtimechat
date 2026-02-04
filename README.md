@@ -84,7 +84,7 @@ realtimechat/
 <h2>🚀 セットアップ</h2>
 
 <h3>1. リポジトリをクローン</h3>
-<pre>git clone https://github.com/yourname/realtimechat.git
+<pre>git clone https://github.com/clinicalpathroom/realtimechat.git
 cd realtimechat</pre>
 
 <h3>2. 依存パッケージをインストール</h3>

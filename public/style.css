@@ -1,0 +1,68 @@
+:root {
+  --bg-main: #f7f9fb;
+  --card-bg: #ffffff;
+  --primary: #2563eb;
+  --text-main: #111827;
+  --muted: #6b7280;
+  --radius: 12px;
+}
+
+body {
+  margin: 0;
+  padding: 0px;
+  font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", sans-serif;
+  background: var(--bg-main);
+  color: var(--text-main);
+}
+
+h1, h2 {
+  margin-bottom: 12px;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.06);
+  animation: fadeIn .3s ease;
+}
+
+button {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform .1s ease, opacity .1s ease;
+}
+
+button:hover {
+  opacity: .9;
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.fade {
+  animation: fadeIn .3s ease;
+}
+
+.slide {
+  animation: slideUp .4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

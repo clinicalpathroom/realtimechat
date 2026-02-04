@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>管理者画面</title>
+<link rel="stylesheet" href="/style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+/* ===============================
+   基本レイアウト
+=============================== */
+.container{
+  height:100vh;
+}
+
+/* ミーティング選択（中央寄せカード） */
+#meetingSelect{
+  max-width:600px;
+  margin:60px auto;
+}
+
+/* メイン2カラムUI */
+#mainUI{
+  display:grid;
+  grid-template-columns: 2fr 3fr;
+  gap:24px;
+  padding:0 6px;
+  height:100vh;
+}
+
+.left,
+.right{
+  overflow-y:auto;
+}
+
+.rightBottom{
+  padding:16px;
+  border-radius:8px;
+  overflow-y:auto;
+  background:#c9c9c9;
+}
+.poll-header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.poll-header h2{
+  margin:24px 8px;   /* ← 上下の余白を必要量だけ戻す */
+  line-height:1;
+}
+
+/* ===============================
+   共通フォームUI
+=============================== */
+input,
+select,
+textarea,
+button{
+  font-size:1rem;
+}
+
+input, select, textarea{
+  padding:8px;
+}
+
+button{
+  padding:8px 16px;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+/* 横並び汎用行 */
+.row{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin-bottom:12px;
+}
+
+.row input{ flex:1; }
+
+/* 上部タイトル・背景設定行 */
+.topRow{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-bottom:16px;
+}
+
+.group{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.group input{ width:200px; }
+
+.spacer{ flex:1; }
+
+/* ===============================
+   質問作成エリア
+=============================== */
+.createRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:flex-start;
+}
+
+#createRow input{ flex:2; min-width:200px; }
+#createRow select{ flex:1; min-width:120px; }
+#createRow textarea{
+  flex:2;
+  min-width:220px;
+  height:80px;
+  font-size:.95rem;
+}
+#createRow button{
+  flex:0 0 auto;
+  height:44px;
+}
+
+/* ===============================
+   ミーティング情報ブロック
+=============================== */
+#meetingInfoCard input{
+  width:100%;
+  margin:6px 0 12px;
+  font-size:.9rem;
+}
+
+.urlBlock{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:16px;
+  text-align:center;
+  margin-bottom:18px;
+}
+
+.urlBlock > div{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+
+/* タイトル行 */
+.urlBlock > div:nth-child(-n+3){
+  font-weight:bold;
+  margin-bottom:6px;
+}
+
+.urlBlock canvas{
+  width:120px !important;
+  height:120px !important;
+}
+
+.urlRow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.urlRow input{
+  flex:1;
+  min-width:0;
+  padding:6px 8px;
+}
+
+/* ===============================
+   プレビューエリア
+=============================== */
+.previewWrap{
+  display:flex;
+  gap:24px;
+  align-items:flex-start;
+  margin-bottom:24px;
+}
+
+.previewLabel{
+  color:#000;
+  margin-bottom:8px;
+  font-size:12px;
+}
+
+/* スマホ縦長 */
+.phonePreview{ width:280px; }
+
+.phonePreview iframe{
+  width:100%;
+  height:540px;
+  border:8px solid #333;
+  border-radius:24px;
+  background:#000;
+}
+
+/* 投影画面 */
+.screenPreview{ flex:1; }
+
+.screenPreview iframe{
+  width:100%;
+  height:545px;
+  border:4px solid #333;
+  border-radius:12px;
+  background:#000;
+}
+
+/* ===============================
+   投票結果プレビュー共通
+=============================== */
+.preview{
+  background:#000;
+  color:#fff;
+  border-radius:8px;
+  padding:40px;
+  margin-bottom:16px;
+  transform:scale(.85);
+  transform-origin:top left;
+  font-size:28px;
+  min-height:300px;
+}
+
+.preview #pv-area div{
+  margin-bottom:12px;
+}
+
+/* ===============================
+   フローティング回答一覧
+=============================== */
+#floatingAnswers{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  width:320px;
+  max-height:60vh;
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+  padding:16px;
+  overflow-y:auto;
+  z-index:9999;
+}
+
+#floatingAnswers h3{
+  margin-top:0;
+  font-size:1rem;
+  border-bottom:1px solid #eee;
+  padding-bottom:8px;
+}
+
+/* ===============================
+   セレクトボックス
+=============================== */
+#pollSelect{
+  width:70%;
+}
+
+@media (max-width: 900px){
+  #mainUI{
+    grid-template-columns: 1fr;
+  }
+
+  .previewWrap{
+    flex-direction:column;
+  }
+
+  .phonePreview{
+    width:100%;
+  }
+
+  .screenPreview iframe{
+    height:400px;
+  }
+}
+/* ===============================
+   タブUI
+=============================== */
+.tabBar{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+}
+
+.tabBtn{
+  flex:1;
+  padding:10px;
+  border:none;
+  background:#0095d9;;
+  color:#fff;
+  cursor:pointer;
+  border-radius:6px 6px 0 0;
+}
+
+.tabBtn.active{
+  background:#2563eb;;
+  font-weight:bold;
+}
+
+.tabContent{
+  display:none;
+  animation: fade .15s ease-in-out;
+}
+
+.tabContent.active{
+  display:block;
+}
+
+@keyframes fade{
+  from{opacity:0; transform:translateY(4px)}
+  to{opacity:1; transform:translateY(0)}
+}
+/* ===============================
+   現在の質問
+=============================== */
+.statusBtn{
+  border-radius: 6px;
+  padding: 1px 1px;
+  width: 6em;
+  height:1.5em;
+  font-size: small;
+}
+/* ===============================
+   投票ステータス表示色
+=============================== */
+.statusBadge{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:0.85rem;
+  font-weight:bold;
+  color:#fff;
+  margin-right:8px;
+}
+
+/* 準備中 */
+.status-editing{
+  background:#6b7280; /* グレー */
+}
+
+/* 回答中 */
+.status-voting{
+  background:#16a34a; /* グリーン */
+}
+
+/* 停止中 */
+.status-stopping{
+  background:#dc2626; /* レッド */
+}
+
+/* ===============================
+   画面表示ステータス色
+=============================== */
+
+/* 非表示 */
+.screen-hidden{
+  background:#6b7280; /* グレー */
+}
+
+/* 表示中 */
+.screen-visible{
+  background:#16a34a; /* グリーン */
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div id="meetingSelect" class="card">
+    <h2>ミーティング管理</h2>
+    <input id="meetingName" placeholder="新しいミーティング名">
+    <button onclick="createMeeting()">新しいミーティングを開く</button>
+
+    <h3>過去のミーティング</h3>
+    <div id="meetingList"></div>
+
+    <input id="meetingIdInput" placeholder="ミーティングID">
+    <button onclick="openMeetingById()">IDで開く</button>
+  </div>
+
+  <div id="mainUI" style="display:none;">
+    <div class="left">
+      <h1>管理者UI</h1>
+      <div class="topRow">
+        <div class="group">
+          <input id="meetingTitle" placeholder="ミーティングタイトル">
+          <button onclick="changeTitle()">タイトル変更</button>
+        </div>
+      </div>
+          <strong id="meetingStatusLabel"></strong>
+          <button id="toggleMeetingBtn" onclick="toggleMeeting()"></button>
+
+  <h2>質問作成</h2>
+
+  <div class="createRow">
+    <input id="question" placeholder="質問">
+
+    <select id="type" onchange="typechange()">
+      <option value="choice">選択式</option>
+      <option value="text">自由記載</option>
+    </select>
+
+    <div id="multiAnswer" style="display:none">
+      <input type="checkbox" id="multiAnswerBox" name="multiAnswer" value="multiAnswer"/>
+      <label>複数回答</label>
+    </div>
+    <textarea id="options" placeholder="選択肢（1行1つ）"></textarea>
+
+    <button onclick="createPoll()">作成</button>
+  </div>
+
+  <h2>設定</h2>
+        <label>背景色</label><input type="color" id="bgColor" value="#000000" style="padding: 0;">
+        <label>背景画像</label><input type="file" id="bgImage" accept="image/*">
+        <button onclick="applyBackground()">適用</button>
+
+  <div class="card" id="meetingInfoCard">
+    <h2>ミーティング情報</h2>
+      <div><strong>Meeting ID：</strong><span id="meetingIdDisplay"></span></div>
+
+      <div class="urlBlock">
+        <div>🛠 管理画面</div><div>👥 参加者画面</div><div>🖥 投影画面</div>
+        <div id="adminQR"></div><div id="participantQR"></div><div id="screenQR"></div>
+      </div>
+      <div>
+        <div class="urlRow">管理画面:<input id="adminUrl" readonly><button onclick="openPreview('adminUrl')">開く</button></div>
+        <div class="urlRow">参加者画面:<input id="participantUrl" readonly><button onclick="openPreview('participantUrl')">開く</button></div>
+        <div class="urlRow">投影画面:<input id="screenUrl" readonly><button onclick="openPreview('screenUrl')">開く</button></div>
+      </div>
+
+    </div>
+  </div>
+
+    <div class="right">
+      <div class="rightTop">
+        <h2>現在の質問</h2>
+        <div class="card">
+          <strong>内容：</strong>
+          <select id="pollSelect" onchange="switchPoll(this.value)">
+            <option value="">質問を選択してください</option>
+          </select>
+          <div id="current"></div>
+        </div>
+      </div>
+
+      <div class="rightBottom">
+
+        <!-- タブボタン -->
+        <div class="tabBar">
+          <button class="tabBtn active" onclick="switchTab('previewTab', this)">画面</button>
+          <button class="tabBtn" onclick="switchTab('clientsTab', this)">接続者</button>
+          <button class="tabBtn" onclick="switchTab('answersTab', this)">回答</button>
+        </div>
+
+        <!-- ▼ タブ：画面プレビュー -->
+        <div id="previewTab" class="tabContent active">
+          <div class="previewWrap">
+            <div class="phonePreview">
+              <div class="previewLabel">参加者画面(送信しても結果には反映されません)</div>
+              <iframe id="participantFrame"></iframe>
+            </div>
+            <div class="screenPreview">
+              <div class="previewLabel">投影画面</div>
+              <iframe id="screenFrame"></iframe>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▼ タブ：接続者一覧 -->
+        <div id="clientsTab" class="tabContent">
+          <h3>現在の接続者</h3>
+          <div id="clientList">接続者情報を取得中...</div>
+        </div>
+
+        <!-- ▼ タブ：回答一覧 -->
+        <div id="answersTab" class="tabContent">
+          <h3 id="typeTitle">結果が表示されます</h3>
+          <div id="list"></div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  let socket = io();  // ← 先に接続だけ作る（meeting未参加）
+  let meetingId = params.get("m");   // 例: admin.html?m=abcd1234
+  let currentMeeting = null;
+  let currentPoll = null;
+  let optionsData = [];
+  let answersData = [];
+  let previewLoaded = false;
+
+  const pool_status_master = { editing:"準備中", voting:"回答中", stopping:"停止中" };
+  const pool_status_btn_master = { editing:"回答開始", voting:"回答準備", stopping:"回答準備" };
+  const meeting_status_master = { open:"会議中", close:"終了" };
+  const type_master = { choice:"選択式", text:"自由記載" };
+  const screen_master = { 0:"非表示", 1:"表示" };
+  const type_title_master = { choice:"選択式(結果)", text:"自由記載(承認制)" };
+  const multi_answer_master = {true:"複数回答可",false:"単一回答" }
+  
+  const MAX_VISIBLE_ANSWERS = 50; // ← 表示上限
+
+  socket.on("meetingCreated", m => {
+    startMeeting(m.id);
+  });
+
+  socket.on("invalidMeeting", () => {
+    alert("このミーティングIDは存在しません");
+    location.reload();
+  });
+
+  if(meetingId){
+    meetingIdInput.value = meetingId
+    openMeetingById()
+  }
+
+
+  function connectToMeeting(id){
+    meetingId = id;
+    socket.disconnect(); // 既存接続を切る
+    socket = io({ query: { role:"admin", meetingId } }); // 再接続
+    
+    registerSocketEvents();
+    meetingIdDisplay.textContent = meetingId;
+    const origin = location.origin;
+    const adminURL       = `${origin}/admin.html?m=${meetingId}`;
+    const participantURL = `${origin}/index.html?m=${meetingId}`;
+    const screenURL      = `${origin}/screen.html?m=${meetingId}`;
+
+    adminUrl.value = adminURL;
+    participantUrl.value = participantURL;
+    screenUrl.value = screenURL;
+
+    // 🔥 初回だけiframeをセット（ここが重要）
+    if(!previewLoaded){
+      participantFrame.src = participantURL + "&preview=1";
+      screenFrame.src      = screenURL;
+      previewLoaded = true;
+    }
+
+    // QR生成（これは毎回OK）
+    adminQR.innerHTML = "";
+    participantQR.innerHTML = "";
+    screenQR.innerHTML = "";
+
+    new QRCode(adminQR,       { text: adminURL, width:128, height:128 });
+    new QRCode(participantQR, { text: participantURL, width:128, height:128 });
+    new QRCode(screenQR,      { text: screenURL, width:128, height:128 });
+
+  }
+
+  function registerSocketEvents(){
+
+    socket.on("connect", () => {
+      console.log("🟢 socket connected", socket.id);
+    });
+
+    socket.on("meeting", meeting => {
+      if(!meeting) return;
+      currentMeeting = meeting
+
+      meetingTitle.value = meeting.title;
+      meetingStatusLabel.innerText = meeting_status_master[meeting.status]
+
+      if(meeting.status==="open"){
+        toggleMeetingBtn.innerHTML = "ミーティングを終了する";
+      }else if(meeting.status==="close"){
+        toggleMeetingBtn.innerHTML = "ミーティングを再開する";
+      }
+      render()
+      
+    });
+
+    socket.on("settings", rows=>{
+      const bg = rows.find(r=>r.setting_item==="background");
+    });
+
+    socket.on("pollList", renderPollList);
+
+    socket.on("poll", data => {
+      if (!data || !data.poll) return;
+
+      currentPoll = data.poll;
+      optionsData = data.options || [];
+      answersData = (data.answers || []).slice(-500);
+      
+
+      // ★ select と強制同期
+      if (pollSelect.value !== currentPoll.id) {
+        const exists = [...pollSelect.options].some(o => o.value === currentPoll.id);
+        if (exists) {
+          pollSelect.value = currentPoll.id;
+        }
+      }
+
+      render();
+    });
+
+
+    socket.on("clients", clients => {
+      const box = document.getElementById("clientList");
+      if(!clients || clients.length === 0){
+        box.innerHTML = "接続者はいません";
+        return;
+      }
+
+      box.innerHTML = clients.map(c =>
+        `<div class="card" style="margin-bottom:8px">
+          <strong>${c.name || "匿名"}</strong><br>
+          <small>${c.role}</small>
+        </div>`
+      ).join("");
+    });
+
+
+    socket.on("disconnect", () => {
+      console.log("🔴 socket disconnected");
+    });
+
+  }
+
+
+  function createMeeting(){
+    if(!meetingName.value.trim()) return;
+    socket.emit("createMeeting", meetingName.value);
+  }
+
+  function openMeetingById(){
+    if(!meetingIdInput.value.trim()) return;
+    startMeeting(meetingIdInput.value.trim());
+  }
+
+  function redirectURL(meetingId){
+    const origin = location.origin;
+    const adminURL = `${origin}/admin.html?m=${meetingId}`;
+    window.location.replace(adminURL)
+  }
+
+  function startMeeting(id){
+    if(!meetingId) redirectURL(id)
+    previewLoaded = false; // ← ミーティング切替時だけ再読込許可
+    meetingSelect.style.display = "none";
+    mainUI.style.display = "grid";
+    connectToMeeting(meetingId);
+  }
+
+
+function renderPollList(list){
+  pollSelect.innerHTML = `<option value="">質問を選択してください</option>`;
+  if(!list) return;
+
+  list.forEach(p=>{
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.question;
+    pollSelect.appendChild(opt);
+  });
+
+  // ★ すでに現在pollが分かっている場合は再選択
+  if(currentPoll){
+    const exists = list.some(p => p.id === currentPoll.id);
+    if(exists){
+      pollSelect.value = currentPoll.id;
+    }
+  }
+}
+
+  function switchPoll(id){
+    socket.emit("switchPoll", id);
+  }
+
+  function createPoll(){
+    socket.emit("createPoll", {
+      question: question.value,
+      type: type.value,
+      options: options.value.split("\n").filter(v=>v),
+      multiAnswer: multiAnswer.checked
+    });
+  }
+
+  function pollStatus(s){ socket.emit("setPollStatus", s); }
+  function visibleSc(){ socket.emit("toggleScreen"); }
+  function closeMeeting(){ socket.emit("setMeetingStatus", "closed");}
+  function toggleMeeting(){ socket.emit("toggleMeeting"); }
+  function togglePollStatus(){ socket.emit("togglePollStatus"); }
+
+  function applyBackground(){
+    const color = document.getElementById("bgColor").value;
+    const fileInput = document.getElementById("bgImage");
+
+    // 画像が選択されている場合は画像優先
+    if(fileInput.files.length > 0){
+      const reader = new FileReader();
+      reader.onload = function(e){
+        socket.emit("updateSetting",{
+          item:"background",
+          value:`url(${e.target.result}) center/cover no-repeat`
+        });
+      };
+      reader.readAsDataURL(fileInput.files[0]);
+    }else{
+      socket.emit("updateSetting",{
+        item:"background",
+        value: color
+      });
+    }
+  }
+
+  function changeTitle(){
+    if(!meetingTitle.value.trim()) return;
+    socket.emit("updateTitle", {title:meetingTitle.value.trim(), id:meetingId});
+  }
+
+
+  function render(){
+  current.innerHTML="";
+  list.innerHTML="";
+  if(!currentPoll || !currentMeeting) return;
+
+  current.innerHTML=`
+    種類：${type_master[currentPoll.type]}(${multi_answer_master[currentPoll.multiAnswer]})<br>
+
+    状態：
+    <span class="statusBadge status-${currentPoll.status}">
+      ${pool_status_master[currentPoll.status]}
+    </span>
+
+    <button id="togglePollStatusBtn" class="statusBtn" onclick="togglePollStatus()">
+      ${pool_status_btn_master[currentPoll.status]}
+    </button>
+    <button id="stopPollStatusBtn" class="statusBtn" onclick="pollStatus('stopping')">
+      回答終了
+    </button><br>
+
+    画面表示：
+    <span class="statusBadge ${currentPoll.visible ? 'screen-visible' : 'screen-hidden'}">
+      ${screen_master[currentPoll.visible]}
+    </span>
+
+    <button class="statusBtn" onclick="visibleSc()">
+      結果を${screen_master[currentPoll.visible^1]}
+    </button>
+  `;
+
+  // ★ 生成後に取得する
+  const toggleBtn = document.getElementById("togglePollStatusBtn");
+  const stopBtn   = document.getElementById("stopPollStatusBtn");
+
+  if(currentMeeting.status==="open"){
+    toggleBtn.style.display = "inline";
+    stopBtn.style.display = "inline";
+  }else{
+    toggleBtn.style.display = "none";
+    stopBtn.style.display = "none";
+  }
+
+  typeTitle.textContent = type_title_master[currentPoll.type];
+  renderResultsToAdmin();
+}
+  function renderResultsToAdmin(){
+    list.innerHTML = "";
+    const isAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 10;
+
+    if(!currentPoll) return;
+
+    /* 自由記載 */
+    if(currentPoll.type === "text"){
+
+      // 🔥 新しい順に並べて最新50件だけ表示
+      const recentAnswers = answersData.slice(-MAX_VISIBLE_ANSWERS).reverse();
+
+      const fragment = document.createDocumentFragment();
+
+      recentAnswers.forEach(a=>{
+        const card = document.createElement("div");
+        card.className = "card";
+        card.style.marginBottom = "8px";
+
+        card.innerHTML = `
+          <button data-id="${a.id}">
+            ${a.visible ? "非表示" : "承認"}
+          </button>
+          <div style="opacity:${a.visible?1:.4};margin-top:6px">${escapeHtml(a.text)}</div>
+        `;
+
+        card.querySelector("button").onclick = () => {
+          socket.emit('toggleAnswerVisible', a.id);
+        };
+
+        fragment.appendChild(card);
+      });
+
+      list.appendChild(fragment);
+      if(isAtBottom){
+      list.scrollTop = list.scrollHeight;
+    }
+    }
+  }
+
+
+  function openPreview(inputId){
+    const url = document.getElementById(inputId).value;
+    if(!url) return alert("URLがまだ生成されていません");
+    window.open(url, "_blank");
+  }
+
+
+  function typechange(){
+    options.style.display=(type.value==="choice")?"block":"none";
+    multiAnswer.style.display=(type.value==="text")?"block":"none";
+  }
+
+  function switchTab(tabId, btn){
+    document.querySelectorAll(".tabContent").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".tabBtn").forEach(b=>b.classList.remove("active"));
+
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+  }
+
+  function escapeHtml(str){
+  if(!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+</script>
+</body>
+</html>

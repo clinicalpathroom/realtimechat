@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>リアルタイムアンケート</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<style>
+:root{
+  --primary:#0066cc;
+  --bg:#f5f7fa;
+}
+
+body{
+  margin:0;
+  padding:16px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg);
+}
+
+h1{
+  font-size:1.2rem;
+  margin-bottom:8px;
+}
+
+h2{
+  font-size:1rem;
+  margin-bottom:16px;
+}
+
+.card{
+  background:#fff;
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+button{
+  width:100%;
+  min-height:56px;
+  margin-bottom:12px;
+  font-size:1rem;
+  border:none;
+  border-radius:10px;
+  background:var(--primary);
+  color:#fff;
+}
+
+button:disabled{
+  opacity:.5;
+}
+
+textarea{
+  width:100%;
+  height:120px;
+  font-size:1rem;
+  padding:12px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  box-sizing:border-box;
+}
+
+.message{
+  text-align:center;
+  font-size:1rem;
+  padding:24px 0;
+}
+
+.result-item{
+  font-size:.9rem;
+  padding:6px 0;
+  border-bottom:1px solid #eee;
+}
+</style>
+</head>
+
+<body>
+
+<h1 id="title"></h1>
+<div id="msg"  class='message'>しばらくお待ちください</div>
+<div id="pollArea" style="display:none">
+  <h2 id="question"></h2>
+  <div id="area" class="card"></div>
+  <div id="result" class="card"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* =========================
+   ミーティングID取得
+========================= */
+const params = new URLSearchParams(location.search);
+const meetingId = params.get("m");   // 例: index.html?m=abcd1234
+let currentMeeting = null
+if(!meetingId){
+  document.body.innerHTML = "<div class='message'>ミーティングIDが指定されていません</div>";
+  throw new Error("meetingId missing");
+}
+
+/* =========================
+   Socket接続
+========================= */
+const socket = io({
+  query:{
+    role:"participant",
+    meetingId: meetingId
+  }
+});
+
+let currentPollId = "";
+let voted = false;
+
+/* =========================
+   ミーティング情報受信
+========================= */
+socket.on("meeting", meeting=>{
+  if(!meeting) return
+  currentMeeting = meeting
+  if(meeting.title){
+    title.textContent = meeting.title;
+  }
+
+});
+
+/* =========================
+   アンケート表示
+========================= */
+socket.on("poll", ({ poll, options, answers, multiAnswer })=>{
+  question.textContent = poll.question || "";
+
+  if(currentPollId !== poll.id){
+    currentPollId = poll.id;
+    voted = false;  
+  }
+    area.innerHTML = "";   
+    result.innerHTML = "";
+  if(voted){
+    msg.innerText="送信ありがとうございました";
+  }else{
+    msg.innerText = "";
+  }
+
+  /* =========================
+     最優先：休止・編集中
+  ========================= */
+  if(currentMeeting.status === "close"){
+    msg.innerText="この会議は終了しました";
+    pollArea.style.display = "none"
+    return
+  }
+
+  if(poll.status==="editing"){
+    msg.innerText="しばらくお待ちください";
+    pollArea.style.display = "none"
+    return; // ← 他の描画を止めるのが重要
+  }
+
+  /* =========================
+     停止中
+  ========================= */
+  if(poll.status==="stopping"){
+     msg.innerText="回答は終了しました";
+  }
+  pollArea.style.display = "inline";
+  /* =========================
+     投票UI
+  ========================= */
+  if(poll.status==="voting" && !voted){
+
+    if(poll.type==="choice"){
+      options.forEach(o=>{
+        const b=document.createElement("button");
+        b.textContent=o.text;
+        b.onclick=()=>{
+          socket.emit("vote",o.id);
+          voted=true;
+          if(!multiAnswer) area.innerHTML = ""
+          msg.innerText="送信ありがとうございました";
+        };
+        area.appendChild(b);
+      });
+    }
+
+    if(poll.type==="text"){
+      area.innerHTML=`
+        <textarea id="t" maxlength="200" placeholder="こちらに入力してください"></textarea>
+        <button id="sendBtn">送信</button>
+      `;
+      sendBtn.onclick=()=>{
+        if(!t.value.trim()) return;
+        socket.emit("submitText",t.value);
+        if(!multiAnswer) area.innerHTML = ""
+        voted=true;
+        msg.innerText="送信ありがとうございました";
+      };
+    }
+  }
+
+  /* =========================
+     結果表示（投票中/停止中）
+  ========================= */
+  if((poll.status==="voting" || poll.status==="stopping") && poll.visible===1){
+
+    if(poll.type==="choice"){
+      options.forEach(o=>{
+        result.innerHTML+=`<div class="result-item">${o.text}：${o.votes}</div>`;
+      });
+    }
+
+    if(poll.type==="text"){
+      answers.filter(a=>a.visible===1).forEach(a=>{
+        result.innerHTML+=`<div class="result-item">${a.text}</div>`;
+      });
+    }
+  }
+});
+
+/* =========================
+   設定受信（イベント名修正）
+========================= */
+socket.on("settings", rows=>{
+  const settings = {};
+  rows.forEach(r=> settings[r.setting_item] = r.setting);
+
+  if(settings.background)
+  applyBackground(settings.background);
+});
+
+function applyBackground(value){
+  if(!value) return;
+
+  document.body.style.background = value;
+
+  // 画像系だった場合の補助指定
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+  document.body.style.backgroundRepeat = "no-repeat";
+  document.body.style.backgroundAttachment = "fixed";
+}
+
+
+
+/* =========================
+   エラー処理
+========================= */
+socket.on("invalidMeeting", ()=>{
+  document.body.innerHTML="<div class='message'>このミーティングは存在しません</div>";
+});
+
+</script>
+
+
+</body>
+</html>

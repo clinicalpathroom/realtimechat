@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>投影画面</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+:root{
+  --primary:#0066cc;
+  --bg:#f5f7fa;
+}
+.wrapper{ padding:60px 80px; }
+#title{ font-size:42px; margin-bottom:10px; opacity:.9; }
+#question{ font-size:56px; font-weight:bold; margin-bottom:30px; }
+#status{ font-size:24px; margin-bottom:30px; opacity:.7; }
+#area{ margin-top:30px; }
+
+.barRow{ margin-bottom:22px; }
+.barLabel{ font-size:28px; margin-bottom:6px; }
+.barBg{ background:#333; border-radius:8px; overflow:hidden; height:36px; }
+.barFill{ height:100%; background:linear-gradient(90deg,#4caf50,#81c784); width:0%; transition:width .6s ease; }
+.barCount{ font-size:22px; margin-top:6px; opacity:.8; }
+.card{
+  background:#fff;
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+@keyframes fadeUp{
+  from{opacity:0; transform:translateY(20px);}
+  to{opacity:1; transform:translateY(0);}
+}
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div id="title"></div>
+  <div id="question">しばらくお待ち下さい</div>
+  <div id="status"></div>
+  <div id="area"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* =========================
+   meetingId をURLから取得
+========================= */
+const params = new URLSearchParams(location.search);
+const meetingId = params.get("m");   // 例: screen.html?m=abcd1234
+
+if(!meetingId){
+  document.body.innerHTML = "<h1>meetingId が指定されていません</h1>";
+  throw new Error("meetingId missing");
+}
+
+/* =========================
+   Socket接続（重要修正）
+========================= */
+const socket = io({ query:{ role:"screen", meetingId } });
+
+const titleEl = document.getElementById("title");
+const questionEl = document.getElementById("question");
+const statusEl = document.getElementById("status");
+const area = document.getElementById("area");
+
+const statusText = {
+  editing:"",
+  voting:"🟢 回答受付中",
+  stopping:"🟡 回答終了"
+};
+
+/* =========================
+   会議タイトル受信
+========================= */
+socket.on("meeting", meeting=>{
+  titleEl.textContent = meeting.title || "";
+});
+
+/* =========================
+   設定受信（イベント名修正）
+========================= */
+socket.on("settings", rows=>{
+  const settings = {};
+  rows.forEach(r=> settings[r.setting_item] = r.setting);
+  if(settings.background)
+    applyBackground(settings.background);
+});
+
+/* =========================
+   投票表示
+========================= */
+socket.on("poll", ({ poll, options=[], answers=[] })=>{
+  questionEl.textContent =
+    (poll.status==="voting" || poll.status==="stopping")
+      ? poll.question
+      : "しばらくお待ち下さい";
+
+  statusEl.textContent = statusText[poll.status] || "";
+  area.innerHTML = "";
+
+  if(poll.visible === 1 && poll.status !== "pause"){
+    /* ---------- 選択式 ---------- */
+    if(poll.type==="choice"){
+      const total = options.reduce((sum,o)=>sum+o.votes,0) || 1;
+
+      options.forEach(o=>{
+        const percent = Math.round((o.votes/total)*100);
+
+        const row = document.createElement("div");
+        row.className = "barRow";
+        row.innerHTML = `
+          <div class="barLabel">${o.text}</div>
+          <div class="barBg">
+            <div class="barFill" style="width:${percent}%"></div>
+          </div>
+          <div class="barCount">${o.votes} 票（${percent}%）</div>
+        `;
+        area.appendChild(row);
+      });
+    }
+
+    /* ---------- 自由記載 ---------- */
+    if(poll.type==="text"){
+      answers
+        .filter(a=>a.visible)
+        .slice(-8)
+        .forEach(a=>{
+          const div = document.createElement("div");
+          div.className = "card";
+          div.textContent = a.text;
+          area.appendChild(div);
+        });
+    }
+  }
+});
+
+
+
+function applyBackground(value){
+  if(!value) return;
+
+  document.body.style.background = value;
+
+  // 画像系だった場合の補助指定
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+  document.body.style.backgroundRepeat = "no-repeat";
+  document.body.style.backgroundAttachment = "fixed";
+}
+
+</script>
+
+</body>
+</html>

@@ -75,8 +75,6 @@ node server.js</pre>
 <table>
 <tr><th>画面</th><th>URL</th></tr>
 <tr><td>管理者</td><td>http://localhost:3000/admin</td></tr>
-<tr><td>参加者</td><td>http://localhost:3000/participant</td></tr>
-<tr><td>投影画面</td><td>http://localhost:3000/screen</td></tr>
 </table>
 </section>
 

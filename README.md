@@ -69,8 +69,7 @@ Socket.IO を利用し、チャット・アンケート（投票）・参加者�
 realtimechat/
 ├─ server.js
 ├─ package.json
-├─ db.sqlite3
-├─ routes/
+├─ meeting_poll.db
 ├─ public/
 │   ├─ admin.html
 │   ├─ participant.html

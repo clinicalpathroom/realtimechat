@@ -1,53 +1,46 @@
-
-
-<h1>Realtime Chat & Live Poll System</h1>
+<h1>Realtime Meeting & Live Poll System</h1>
 
 <section>
-<p>
-ブラウザのみで利用できる <strong>リアルタイム双方向コミュニケーションWebアプリケーション</strong> です。<br>
-Socket.IO を利用し、チャット・アンケート（投票）・参加者状況の共有をリアルタイムに実現します。
-</p>
-<p>
-研修会、講演会、カンファレンス、会議、イベントなど<br>
-<strong>多人数が同時参加する場での即時コミュニケーション</strong> を目的に設計されています。
-</p>
+<p>Socket.IO を利用した <strong>リアルタイム会議支援システム</strong> です。<br>
+管理者・参加者・投影画面の3ロール構成で、チャット型のテキスト回答および選択式アンケートをリアルタイムに集計・表示します。</p>
+
+<p>研修会・講演会・学会・社内会議など、多人数参加型イベントでの即時フィードバック収集を目的としています。</p>
 </section>
 
 <section>
 <h2>✨ 主な機能</h2>
 
-<h3>💬 リアルタイムチャット</h3>
+<h3>🧑‍💼 会議（Meeting）管理</h3>
 <ul>
-<li>投稿メッセージを即時全体配信</li>
-<li>ページ再読み込み不要</li>
-<li>同時接続にも対応する軽量構成</li>
+<li>会議の作成（UUID自動生成）</li>
+<li>会議の開閉ステータス管理</li>
+<li>タイトルのリアルタイム更新</li>
 </ul>
 
-<h3>🗳 リアルタイムアンケート（投票）</h3>
+<h3>🗳 アンケート（Poll）機能</h3>
 <ul>
-<li>管理者がアンケートを開始／終了</li>
-<li>参加者はスマホから即回答</li>
-<li>結果をリアルタイム自動集計</li>
+<li>選択式 / テキスト式アンケート対応</li>
+<li>投票開始・停止のリアルタイム制御</li>
+<li>投影画面への表示ON/OFF切替</li>
+<li>複数回答設定（multiAnswer）</li>
 </ul>
 
-<h3>👨‍💼 管理者ダッシュボード</h3>
+<h3>📊 リアルタイム集計</h3>
 <ul>
-<li>アンケート制御（開始・終了）</li>
-<li>投稿状況の監視</li>
-<li>進行用モニタとして利用可能</li>
+<li>投票はバッファリング後1秒ごとにDB反映</li>
+<li>全画面へ即時結果配信</li>
 </ul>
 
-<h3>👥 参加者画面</h3>
+<h3>💬 テキスト回答機能</h3>
 <ul>
-<li>ログイン不要（ルームID方式）</li>
-<li>直感的に操作できるシンプルUI</li>
-<li>スマートフォン・タブレット対応</li>
+<li>参加者から自由記述投稿</li>
+<li>管理者が表示可否を制御可能</li>
 </ul>
 
-<h3>💾 データ保存</h3>
+<h3>👥 クライアント管理</h3>
 <ul>
-<li>SQLite による軽量データ管理</li>
-<li>チャットログ・投票結果の保存が可能</li>
+<li>参加者一覧を管理者画面に表示</li>
+<li>プレビュー接続は自動除外</li>
 </ul>
 </section>
 
@@ -58,89 +51,82 @@ Socket.IO を利用し、チャット・アンケート（投票）・参加者�
 <tr><td>サーバー</td><td>Node.js / Express</td></tr>
 <tr><td>リアルタイム通信</td><td>Socket.IO</td></tr>
 <tr><td>データベース</td><td>SQLite3</td></tr>
-<tr><td>フロントエンド</td><td>HTML / CSS / Vanilla JavaScript</td></tr>
-<tr><td>ID生成</td><td>UUID</td></tr>
+<tr><td>ID生成</td><td>UUID v4</td></tr>
 </table>
 </section>
 
 <section>
-<h2>📁 ディレクトリ構成（例）</h2>
-<pre>
-realtimechat/
-├─ server.js
-├─ package.json
-├─ meeting_poll.db
-├─ public/
-│   ├─ admin.html
-│   ├─ participant.html
-│   ├─ js/client.js
-│   └─ css/style.css
-└─ README.md
-</pre>
+<h2>📦 データベース構造</h2>
+<table>
+<tr><th>テーブル</th><th>内容</th></tr>
+<tr><td>meetings</td><td>会議情報</td></tr>
+<tr><td>polls</td><td>アンケート情報</td></tr>
+<tr><td>options</td><td>選択肢と得票数</td></tr>
+<tr><td>answers</td><td>テキスト回答</td></tr>
+<tr><td>meeting_settings</td><td>会議ごとの設定値</td></tr>
+</table>
 </section>
 
 <section>
 <h2>🚀 セットアップ</h2>
+<pre>npm install
+node server.js</pre>
 
-<h3>1. リポジトリをクローン</h3>
-<pre>git clone https://github.com/clinicalpathroom/realtimechat.git
-cd realtimechat</pre>
-
-<h3>2. 依存パッケージをインストール</h3>
-<pre>npm install</pre>
-
-<h3>3. サーバー起動</h3>
-<pre>node server.js
-# または
-npm start</pre>
-
-<h3>4. ブラウザでアクセス</h3>
 <table>
 <tr><th>画面</th><th>URL</th></tr>
 <tr><td>管理者</td><td>http://localhost:3000/admin</td></tr>
+<tr><td>参加者</td><td>http://localhost:3000/participant</td></tr>
+<tr><td>投影画面</td><td>http://localhost:3000/screen</td></tr>
 </table>
 </section>
 
 <section>
-<h2>🔌 主なSocketイベント</h2>
+<h2>🔌 Socket.IO イベント一覧</h2>
+
+<h3>📤 クライアント → サーバー</h3>
 <table>
-<tr><th>イベント名</th><th>説明</th></tr>
-<tr><td><code>join-room</code></td><td>指定ルームへ参加</td></tr>
-<tr><td><code>new-message</code></td><td>チャット投稿</td></tr>
-<tr><td><code>start-poll</code></td><td>アンケート開始（管理者）</td></tr>
-<tr><td><code>end-poll</code></td><td>アンケート終了（管理者）</td></tr>
-<tr><td><code>vote</code></td><td>投票送信</td></tr>
-<tr><td><code>poll-update</code></td><td>投票結果のリアルタイム配信</td></tr>
+<tr><th>イベント</th><th>説明</th></tr>
+<tr><td><code>createMeeting</code></td><td>会議作成</td></tr>
+<tr><td><code>toggleMeeting</code></td><td>会議の開閉切替</td></tr>
+<tr><td><code>createPoll</code></td><td>アンケート作成</td></tr>
+<tr><td><code>switchPoll</code></td><td>表示アンケート切替</td></tr>
+<tr><td><code>togglePollStatus</code></td><td>投票開始/停止</td></tr>
+<tr><td><code>toggleScreen</code></td><td>投影表示ON/OFF</td></tr>
+<tr><td><code>vote</code></td><td>選択肢投票</td></tr>
+<tr><td><code>submitText</code></td><td>自由記述回答送信</td></tr>
+</table>
+
+<h3>📥 サーバー → クライアント</h3>
+<table>
+<tr><th>イベント</th><th>内容</th></tr>
+<tr><td><code>meeting</code></td><td>会議状態</td></tr>
+<tr><td><code>poll</code></td><td>現在のアンケート情報</td></tr>
+<tr><td><code>pollList</code></td><td>アンケート一覧（管理者）</td></tr>
+<tr><td><code>settings</code></td><td>会議設定</td></tr>
+<tr><td><code>clients</code></td><td>参加者一覧</td></tr>
 </table>
 </section>
 
 <section>
-<h2>🎯 想定利用シーン</h2>
-<ul>
-<li>医療・教育分野の研修会</li>
-<li>学会・講演会のリアルタイム質問受付</li>
-<li>社内会議での匿名アンケート</li>
-<li>イベントでの参加型投票</li>
-</ul>
+<h2>🌐 REST API（負荷試験用）</h2>
+<table>
+<tr><th>メソッド</th><th>エンドポイント</th><th>内容</th></tr>
+<tr><td>POST</td><td><code>/api/meetings/:meetingId/text</code></td><td>テキスト回答送信</td></tr>
+</table>
 </section>
 
 <section>
-<h2>🔒 注意事項</h2>
+<h2>🔒 本番利用時の推奨対策</h2>
 <ul>
-<li>ローカルまたは限定ネットワーク内での利用を想定</li>
-<li>本番利用時は以下の対策を推奨：
-  <ul>
-    <li>HTTPS化</li>
-    <li>管理者認証の追加</li>
-    <li>DBバックアップ設定</li>
-    <li>レート制限などの不正アクセス対策</li>
-  </ul>
-</li>
+<li>HTTPS化</li>
+<li>管理者認証の追加</li>
+<li>入力値バリデーション強化</li>
+<li>レート制限導入</li>
+<li>DBバックアップ設定</li>
 </ul>
 </section>
 
 <section>
 <h2>📄 ライセンス</h2>
-<p>MIT License</p>
+MIT License
 </section>
-

@@ -4,21 +4,88 @@
 <meta charset="utf-8">
 <title>リアルタイムアンケート</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<link rel="stylesheet" href="/css/base.css">
-<link rel="stylesheet" href="/css/components.css">
-<link rel="stylesheet" href="/css/client.css">
+
+<style>
+:root{
+  --primary:#0066cc;
+  --bg:#f5f7fa;
+}
+
+body{
+  margin:0;
+  padding:16px;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg);
+}
+
+h1{
+  font-size:1.2rem;
+  margin-bottom:8px;
+}
+
+h2{
+  font-size:1rem;
+  margin-bottom:16px;
+}
+
+.card{
+  background:#fff;
+  border-radius:12px;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+button{
+  width:100%;
+  min-height:56px;
+  margin-bottom:12px;
+  font-size:1rem;
+  border:none;
+  border-radius:10px;
+  background:var(--primary);
+  color:#fff;
+}
+
+button:disabled{
+  opacity:.5;
+}
+
+textarea{
+  width:100%;
+  height:120px;
+  font-size:1rem;
+  padding:12px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  box-sizing:border-box;
+}
+
+.message{
+  text-align:center;
+  font-size:1rem;
+  padding:24px 0;
+}
+
+.result-item{
+  font-size:.9rem;
+  border-radius: 10px;/*角の丸み*/
+  padding:6px 0;
+  border-bottom:1px solid #eee;
+}
+</style>
 </head>
 
 <body>
 
 <h1 id="title"></h1><a id="handoutLink" href="handoutURL" target="_blank" style="display:none">資料を開く</a>
-<div id="msg"  class='message'></div>
+<div id="msg"  class='message'>しばらくお待ちください</div>
 <div id="pollArea" style="display:none">
   <h2 id="question"></h2>
   <div id="area" class="card"></div>
-  <div id="result"></div>
+  <div id="result" class="card"></div>
 </div>
-<script src="/js/resultDisplay.js"></script>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 /* =========================
@@ -26,7 +93,6 @@
 ========================= */
 const params = new URLSearchParams(location.search);
 const meetingId = params.get("m");   // 例: index.html?m=abcd1234
-const origin = location.origin;
 let currentMeeting = null
 if(!meetingId){
   document.body.innerHTML = "<div class='message'>ミーティングIDが指定されていません</div>";
@@ -43,21 +109,8 @@ const socket = io({
   }
 });
 
-
 let currentPollId = "";
 let voted = false;
-
-/* =========================
-   接続
-========================= */
-socket.on("disconnect", () => {
-  msg.innerText = "通信が切断されました（再接続中）";
-})
-
-socket.on("connect", () => {
-  msg.innerText = "しばらくお待ちください"
-})
-
 
 /* =========================
    ミーティング情報受信
@@ -68,18 +121,19 @@ socket.on("meeting", meeting=>{
   if(meeting.title){
     title.textContent = meeting.title;
   }
+
 });
 
 /* =========================
    アンケート表示
 ========================= */
-socket.on("poll", ({ poll, options, answers, times})=>{
+socket.on("poll", ({ poll, options, answers})=>{
   if(!poll){
     msg.innerText = "しばらくお待ちください";
     pollArea.style.display = "none";
     return;
   }
-  const isMultiAnswer = JSON.parse(poll.settings).multianswer == 1 
+  const isMultiAnswer = poll.multianswer == 1 
   question.textContent = poll.question || "";
 
   if(currentPollId !== poll.id || poll.status === "editing"){
@@ -88,6 +142,7 @@ socket.on("poll", ({ poll, options, answers, times})=>{
   }
 
     area.innerHTML = "";   
+    result.innerHTML = "";
   if(voted){
     msg.innerText="送信ありがとうございました";
   }else{
@@ -183,35 +238,25 @@ socket.on("poll", ({ poll, options, answers, times})=>{
         if(!isMultiAnswer) area.innerHTML="";
       };
     }
-
-    /* =====================
-      時間
-    ===================== */
-    if(poll.type==="time"){
-
-      area.innerHTML=`
-        <input type="time" id="timeInput">
-        <button id="sendBtn">送信</button>
-      `;
-
-      document.getElementById("sendBtn").onclick=()=>{
-        const time = document.getElementById("timeInput").value
-        if(!time) return
-
-        socket.emit("submitText", time);
-        
-        voted=true;
-        msg.innerText="送信ありがとうございました";
-        if(!isMultiAnswer) area.innerHTML="";
-      };
-    }
   }
 
-    /* =========================
+  /* =========================
      結果表示（投票中/停止中）
   ========================= */
-  result.innerHTML = "";
-  resultRender(poll, options, answers, times)
+  if((poll.status==="voting" || poll.status==="stopping") && poll.visible===1){
+
+    if(poll.type==="choice"){
+      options.forEach(o=>{
+        result.innerHTML+=`<div class="result-item">${o.text}：${o.votes}</div>`;
+      });
+    }
+
+    if(poll.type==="text"){
+      answers.filter(a=>a.visible===1).reverse().forEach(a=>{
+        result.innerHTML+=`<div class="result-item card">${a.text}</div>`;
+      });
+    }
+  }
 });
 
 /* =========================

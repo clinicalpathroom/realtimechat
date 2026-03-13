@@ -65,7 +65,7 @@ db.serialize(() => {
     type TEXT,
     status TEXT,
     visible INTEGER DEFAULT 1,
-    settings TEXT,
+    multianswer INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     delflg INTEGER DEFAULT 0,
     deleted_at DATETIME DEFAULT ''
@@ -177,16 +177,12 @@ app.post("/api/meetings/:meetingId/text", (req, res) => {
 /* ============ Poll Export API ============ */
 app.get("/api/polls/:pollId/export", (req, res) => {
   const pollId = req.params.pollId;
-  
+
   db.get("SELECT * FROM polls WHERE id=? AND delflg=0", [pollId], (e, poll) => {
     if (!poll) return res.status(404).end();
-    let settings = {}
-    try{
-      settings = JSON.parse(poll.settings || "{}")
-    }catch{}
     let csv = `質問内容,${poll.question}\n`
     csv += `質問形式,${poll.type === "text" ? "記述式":"選択式"}\n`;
-    csv += `複数回答,${settings.multianswer === 1 ? "可":"不可"}\n`;
+    csv += `複数回答,${poll.multianswer === 1 ? "可":"不可"}\n`;
     csv += `作成日,${poll.created_at}\n\n`;
     if (poll.type === "choice") {
       db.all("SELECT text, votes FROM options WHERE poll_id=? AND delflg=0", [pollId], (e, rows) => {
@@ -290,46 +286,15 @@ function sendPoll(meetingId) {
       // 投影画面は常に受信
         io.to(room.screen(meetingId)).emit("poll", payload);
     };
-
+    const multiAnswer = poll.multianswer == 1;
     if (poll.type === "choice") {
       db.all("SELECT * FROM options WHERE poll_id=? AND delflg=0", [pollId], (e, opts) => {
-        send({ poll, options: opts, settings:poll.settings });
+        send({ poll, options: opts, multiAnswer });
       });
-    } else if(poll.type === "text") {
+    } else {
       db.all("SELECT * FROM answers WHERE poll_id=? AND delflg=0", [pollId], (e, ans) => {
-        send({ poll, answers: ans, settings:poll.settings });
+        send({ poll, answers: ans, multiAnswer });
       });
-    } else if(poll.type === "time") {
-      const settings = JSON.parse(poll.settings || "{}")
-      const group = Number(settings.timegroup || 1)
-      db.all(
-        "SELECT text FROM answers WHERE poll_id=? AND delflg=0",
-        [pollId],
-        (e, ans) => {
-          const counts = {}
-          ans.forEach(a => {
-            if(!a.text) return
-            const [h,m] = a.text.split(":").map(Number)
-            const minutes = h*60 + m
-            const bucket = Math.floor(minutes / group) * group
-            const bh = Math.floor(bucket / 60)
-            const bm = bucket % 60
-            const key = `${bh}:${String(bm).padStart(2,"0")}`
-            if(!counts[key]) counts[key] = 0
-            counts[key]++
-          })
-          const result = Object.entries(counts)
-            .map(([time,count]) => ({time,count}))
-            .sort((a,b)=>a.time.localeCompare(b.time))
-
-          send({
-            poll,
-            answers: ans,
-            times: result,
-            settings: poll.settings
-          })
-        }
-      )
     }
   });
 }
@@ -470,7 +435,7 @@ io.on("connection", socket => {
   socket.on("createPoll", data => {
     if (!meetingId) return log("WARN", "createPoll ignored (no meetingId)");
 
-    const { question, type, options, settings } = data;
+    const { question, type, options, multiAnswer } = data;
     if (!question || !type) return;
 
     log("EVENT", "createPoll", data);
@@ -480,7 +445,7 @@ io.on("connection", socket => {
     console.log(options)
     db.run(
       "INSERT INTO polls VALUES (?,?,?,?,?,?,?,datetime('now', 'localtime'),0,'')",
-      [pollId, meetingId, question, type, "editing", 1, JSON.stringify(settings)],
+      [pollId, meetingId, question, type, "editing", 1, multiAnswer],
       () => {
         if (type === "choice" && Array.isArray(options)) {
           let i = 0
@@ -552,19 +517,6 @@ io.on("connection", socket => {
       );
     });
   });
-
-  socket.on("setGroupTime", (t) => {
-    const pollId = activePoll[meetingId];
-    if (!pollId) return;
-    db.get("SELECT settings FROM polls WHERE id=? AND delflg=0", [pollId], (e, row) => {
-      let settings = JSON.parse(row.settings)
-      settings.timegroup = t
-      db.run("UPDATE polls SET settings=? WHERE id=?", [JSON.stringify(settings), pollId], () =>
-        sendPoll(meetingId)
-      );
-    });
-  });
-
 
   socket.on("submitText", text => {
     const pollId = activePoll[meetingId];

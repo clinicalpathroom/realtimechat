@@ -3,12 +3,305 @@
 <head>
 <meta charset="utf-8">
 <title>管理者画面</title>
+<link rel="stylesheet" href="/style.css">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="/css/base.css">
-<link rel="stylesheet" href="/css/layout.css">
-<link rel="stylesheet" href="/css/components.css">
-<link rel="stylesheet" href="/css/animation.css">
-<link rel="stylesheet" href="/css/admin.css">
+
+<style>
+  /* ===============================
+    1. 基本レイアウト
+  =============================== */
+  .container{
+    height:100vh;
+  }
+
+  #meetingSelect{
+    max-width:600px;
+    margin:60px auto;
+  }
+
+  #mainUI{
+    display:grid;
+    grid-template-columns: 2fr 3fr;
+    gap:24px;
+    padding:0 6px;
+    height:100vh;
+  }
+
+  .left,.right{ overflow-y:auto; }
+
+  .rightBottom{
+    padding:16px;
+    border-radius:8px;
+    overflow-y:auto;
+    background:#c9c9c9;
+  }
+
+  /* ===============================
+    2. 共通フォームUI
+  =============================== */
+  input,select,textarea,button{
+    font-size:1rem;
+  }
+
+  input,select,textarea{
+    padding:8px;
+  }
+
+  button{
+    padding:8px 16px;
+    white-space:nowrap;
+    cursor:pointer;
+  }
+
+  /* 汎用横並び */
+  .row{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .row input{ flex:1; }
+
+  /* タイトル行 */
+  .topRow{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:16px;
+  }
+
+  .group{ display:flex; align-items:center; gap:8px; }
+  .group input{ width:200px; }
+
+  .delBtn{
+    background-color: #dc2626;
+  }
+  /* ===============================
+    3. 質問作成エリア
+  =============================== */
+  .createRow{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    align-items:flex-start;
+  }
+
+  /* ===============================
+    4. ミーティング情報
+  =============================== */
+  #meetingInfoCard input{
+    width:100%;
+    margin:6px 0 12px;
+    font-size:.9rem;
+  }
+
+  .urlBlock{
+    display:grid;
+    grid-template-columns: repeat(3,1fr);
+    gap:16px;
+    text-align:center;
+    margin-bottom:18px;
+  }
+
+  .urlBlock > div{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+
+  .urlBlock > div:nth-child(-n+3){
+    font-weight:bold;
+  }
+
+  .urlBlock canvas{
+    width:120px !important;
+    height:120px !important;
+  }
+
+  .urlRow{
+    display:flex;
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .urlRow input{ flex:1; }
+
+  /* ===============================
+    5. プレビューエリア
+  =============================== */
+  .previewWrap{
+    display:flex;
+    gap:24px;
+    margin-bottom:24px;
+  }
+
+  .previewLabel{
+    font-size:12px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  /* スマホ枠 */
+  .phonePreview{ width:280px; }
+  .phonePreview iframe{
+    width:100%;
+    height:540px;
+    border:8px solid #333;
+    border-radius:24px;
+    background:#000;
+  }
+
+  /* 投影画面 */
+  .screenPreview{ flex:1; }
+  .screenPreview iframe{
+    width:100%;
+    height:545px;
+    border:4px solid #333;
+    border-radius:12px;
+    background:#000;
+  }
+
+  /* ===============================
+    6. タブUI
+  =============================== */
+  .tabBar{
+    display:flex;
+    gap:8px;
+    margin-bottom:16px;
+  }
+
+  .tabBtn{
+    flex:1;
+    padding:10px;
+    border:none;
+    background:#0095d9;
+    color:#fff;
+    border-radius:6px 6px 0 0;
+    cursor:pointer;
+  }
+
+  .tabBtn.active{
+    background:#2563eb;
+    font-weight:bold;
+  }
+
+  .tabContent{ display:none; }
+  .tabContent.active{
+    display:block;
+    animation:fade .15s ease-in-out;
+  }
+
+  @keyframes fade{
+    from{opacity:0; transform:translateY(4px)}
+    to{opacity:1; transform:translateY(0)}
+  }
+
+  /* ===============================
+    7. ステータス表示
+  =============================== */
+  .statusBadge{
+    display:inline-block;
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:0.7rem;
+    font-weight:bold;
+    color:#fff;
+    margin-right:8px;
+  }
+
+  .status-editing{ background:#6b7280; }
+  .status-voting{ background:#16a34a; }
+  .status-stopping{ background:#dc2626; }
+
+  .screen-hidden{ background:#6b7280; }
+  .screen-visible{ background:#16a34a; }
+
+  .statusBtn{
+    border-radius:6px;
+    padding: 1px 1px;
+    width:6em;
+    height:1.5em;
+    font-size:small;
+  }
+
+  /* ===============================
+    8. フローティング通知（トースト）
+  =============================== */
+  #answerToastArea{
+    position:fixed;
+    top:20px;
+    right:20px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    z-index:10000;
+  }
+
+  .toast{
+    width:320px;
+    padding:14px 16px 16px;
+    border-radius:12px;
+    background:#111;
+    color:#fff;
+    box-shadow:0 10px 30px rgba(0,0,0,.4);
+    animation:slideIn .4s ease;
+  }
+
+  .toast-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
+  }
+
+  .toast-title{
+    font-weight:bold;
+    font-size:14px;
+  }
+
+  .toast-body{
+    font-size:13px;
+    opacity:.9;
+  }
+
+  .toast-close{
+    background:none;
+    border:none;
+    color:#fff;
+    font-size:20px;
+    cursor:pointer;
+    opacity:.7;
+  }
+  .toast-close:hover{ opacity:1; }
+
+  .toast-action{
+    margin-top:8px;
+    padding:6px 10px;
+    border-radius:6px;
+    border:none;
+    font-size:12px;
+    background:#2ecc71;
+    color:#fff;
+    cursor:pointer;
+  }
+
+  @keyframes slideIn{
+    from{ transform:translateX(120%); opacity:0; }
+    to{ transform:translateX(0); opacity:1; }
+  }
+
+  /* ===============================
+    9. レスポンシブ
+  =============================== */
+  @media (max-width:900px){
+    #mainUI{ grid-template-columns:1fr; }
+    .previewWrap{ flex-direction:column; }
+    .phonePreview{ width:100%; }
+    .screenPreview iframe{ height:400px; }
+  }
+
+
+</style>
 </head>
 <body>
 
@@ -47,7 +340,6 @@
     <select id="type" onchange="typechange()">
       <option value="choice">選択式</option>
       <option value="text">自由記載</option>
-      <option value="time">時間形式</option>
     </select>
 
     <div id="multiAnswer">
@@ -156,11 +448,10 @@
   const pool_status_master = { editing:"準備中", voting:"回答中", stopping:"停止中" };
   const pool_status_btn_master = { editing:"回答開始", voting:"回答準備", stopping:"回答準備" };
   const meeting_status_master = { open:"会議中", close:"終了" };
-  const type_master = { choice:"選択式", text:"自由記載" ,time:"時間形式"};
+  const type_master = { choice:"選択式", text:"自由記載" };
   const screen_master = { 0:"非表示", 1:"表示" };
-  const type_title_master = { choice:"選択式", text:"自由記載(承認制)", time:"時間形式"};
+  const type_title_master = { choice:"選択式(結果)", text:"自由記載(承認制)" };
   const multi_answer_master = {1:"複数回答可",0:"単一回答" }
-  const time_group_master = {1:"1m",5:"5m",10:"10m",15:"15m",20:"20m",30:"30m",60:"1H",120:"2H",240:"4H",360:"6H",480:"8H",720:"12H" }
   
   const MAX_VISIBLE_ANSWERS = 100; // ← 表示上限
 
@@ -279,8 +570,7 @@
       // poll 状態 or 表示変更
       if (
         currentPoll.status !== oldPoll.status ||
-        currentPoll.visible !== oldPoll.visible ||
-        currentPoll.settings !== oldPoll.settings
+        currentPoll.visible !== oldPoll.visible
       ) {
         return render();
       }
@@ -288,14 +578,9 @@
     // 件数同じ（表示だけ変化）
     if (oldAnswers.length === newAnswers.length) {
       answersData = newAnswers;
-      if(currentPoll.type === "choice"){
-        render();
-      }else if(list.children.length > 0){
-        updateAnswerVisibilityOnly();
-      }else{
-        render();
-      }
-      return;
+      return currentPoll.type === "choice"
+        ? render()
+        : updateAnswerVisibilityOnly();
     }
     // 回答が減った（削除・一括非表示など）
     if (newAnswers.length < oldAnswers.length) {
@@ -397,7 +682,7 @@ function renderPollList(pollList){
       question: question.value,
       type: type.value,
       options: options.value.split("\n").filter(v=>v),
-      settings: {"multianswer":multiAnswerBox.checked ? 1 : 0,"timegroup":1}
+      multiAnswer: multiAnswerBox.checked ? 1 : 0
     });
     question.value = "";
     options.value = "";
@@ -406,7 +691,6 @@ function renderPollList(pollList){
 
   function pollStatus(s){ socket.emit("setPollStatus", s); }
   function visibleSc(){ socket.emit("toggleScreen"); }
-  function setGroupTime(t){ socket.emit("setGroupTime",t); }
   function closeMeeting(){ socket.emit("setMeetingStatus", "closed");}
   function toggleMeeting(){ socket.emit("toggleMeeting"); }
   function togglePollStatus(){ socket.emit("togglePollStatus"); }
@@ -472,42 +756,30 @@ function renderPollList(pollList){
   current.innerHTML="";
 
   if(!currentPoll || !currentMeeting) return;
-  const settings = JSON.parse(currentPoll.settings || "{}");
-  const multiAnser = settings.multianswer
-  const timeGroup = settings.timegroup
+
   current.innerHTML=`
-  <div class="currentGrid">
-    <div class="grid__item">
-      種類：${type_master[currentPoll.type]}(${multi_answer_master[multiAnser]})<br>
+    種類：${type_master[currentPoll.type]}(${multi_answer_master[currentPoll.multianswer]})<br>
 
-      状態：
-      <span class="statusBadge status-${currentPoll.status}">
-        ${pool_status_master[currentPoll.status]}
-      </span>
+    状態：
+    <span class="statusBadge status-${currentPoll.status}">
+      ${pool_status_master[currentPoll.status]}
+    </span>
 
-      <button id="togglePollStatusBtn" class="statusBtn" onclick="togglePollStatus()">
-        ${pool_status_btn_master[currentPoll.status]}
-      </button>
-      <button id="stopPollStatusBtn" class="statusBtn" onclick="pollStatus('stopping')">
-        回答終了
-      </button><br>
+    <button id="togglePollStatusBtn" class="statusBtn" onclick="togglePollStatus()">
+      ${pool_status_btn_master[currentPoll.status]}
+    </button>
+    <button id="stopPollStatusBtn" class="statusBtn" onclick="pollStatus('stopping')">
+      回答終了
+    </button><br>
 
-      画面表示：
-      <span class="statusBadge ${currentPoll.visible ? 'screen-visible' : 'screen-hidden'}">
-        ${screen_master[currentPoll.visible]}
-      </span>
+    画面表示：
+    <span class="statusBadge ${currentPoll.visible ? 'screen-visible' : 'screen-hidden'}">
+      ${screen_master[currentPoll.visible]}
+    </span>
 
-      <button class="statusBtn" onclick="visibleSc()">
-        結果を${screen_master[currentPoll.visible^1]}
-      </button>
-    </div>
-    <div class="grid__item">
-      集計方式：
-      ${Object.keys(time_group_master).map(t => 
-      `<button class="timegroupBtn ${timeGroup==t ? 'active' : ''}" onclick="setGroupTime(${t})">${time_group_master[t]}</button> `
-      ).join("")}
-    </div>
-  </div>
+    <button class="statusBtn" onclick="visibleSc()">
+      結果を${screen_master[currentPoll.visible^1]}
+    </button>
   `;
 
   // ★ 生成後に取得する

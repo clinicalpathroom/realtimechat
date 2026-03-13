@@ -74,7 +74,7 @@ node server.js</pre>
 
 <table>
 <tr><th>画面</th><th>URL</th></tr>
-<tr><td>管理者</td><td>http://localhost:3000/admin</td></tr>
+<tr><td>管理者</td><td>http://localhost:3001/admin</td></tr>
 </table>
 </section>
 

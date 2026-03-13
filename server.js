@@ -197,8 +197,8 @@ app.get("/api/polls/:pollId/export", (req, res) => {
         res.send(csv);
       });
     } else {
-      db.all("SELECT text, visible, created_at, deleted_at FROM answers WHERE poll_id=?", [pollId], (e, rows) => {
-        csv += "送信文字,承認・日承認,送信日,削除日\n";
+      db.all("SELECT text, visible, created_at, deleted_at FROM answers WHERE poll_id=? AND delflg=0", [pollId], (e, rows) => {
+        csv += "送信文字,承認・非承認,送信日,削除日\n";
         rows.forEach(r =>
           csv += `"${r.text.replace(/"/g,'""')}",${r.visible},${r.created_at},${r.deleted_at}\n`
         );
@@ -547,6 +547,10 @@ io.on("connection", socket => {
     const pollId = activePoll[meetingId];
     if (!pollId) return;
     db.get("SELECT visible FROM polls WHERE id=? AND delflg=0", [pollId], (e, row) => {
+      if (e || !row) {
+        log("WARN", "toggleScreen ignored (poll not found)", { pollId, error: e?.message });
+        return;
+      }
       db.run("UPDATE polls SET visible=? WHERE id=?", [row.visible ^ 1, pollId], () =>
         sendPoll(meetingId)
       );
@@ -557,7 +561,16 @@ io.on("connection", socket => {
     const pollId = activePoll[meetingId];
     if (!pollId) return;
     db.get("SELECT settings FROM polls WHERE id=? AND delflg=0", [pollId], (e, row) => {
-      let settings = JSON.parse(row.settings)
+      if (e || !row) {
+        log("WARN", "setGroupTime ignored (poll not found)", { pollId, error: e?.message });
+        return;
+      }
+      let settings = {}
+      try {
+        settings = JSON.parse(row.settings || "{}")
+      } catch {
+        settings = {}
+      }
       settings.timegroup = t
       db.run("UPDATE polls SET settings=? WHERE id=?", [JSON.stringify(settings), pollId], () =>
         sendPoll(meetingId)

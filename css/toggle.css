@@ -1,0 +1,9 @@
+.toggle{
+  --size:24px;
+  appearance:none;
+  cursor:pointer;
+  width:calc(var(--size)*1.62);
+  height:var(--size);
+  border-radius:var(--size);
+  background:#666;
+}

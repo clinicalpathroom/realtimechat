@@ -1,0 +1,31 @@
+:root{
+  --bg-main:#f7f9fb;
+  --card-bg:#ffffff;
+  --primary:#2563eb;
+  --text-main:#111827;
+  --muted:#6b7280;
+  --radius:12px;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  font-family:"Segoe UI","Hiragino Kaku Gothic ProN",sans-serif;
+  background:var(--bg-main);
+  color:var(--text-main);
+}
+
+h1,h2{
+  margin-bottom:12px;
+}
+
+input,select,textarea,button{
+  font-size:1rem;
+}
+
+input,select,textarea{
+  padding:8px;
+}

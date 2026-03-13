@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>リアルタイムアンケート</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/components.css">
+<link rel="stylesheet" href="/css/client.css">
+</head>
+
+<body>
+
+<h1 id="title"></h1><a id="handoutLink" href="handoutURL" target="_blank" style="display:none">資料を開く</a>
+<div id="msg"  class='message'></div>
+<div id="pollArea" style="display:none">
+  <h2 id="question"></h2>
+  <div id="area" class="card"></div>
+  <div id="result"></div>
+</div>
+<script src="/js/resultDisplay.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+/* =========================
+   ミーティングID取得
+========================= */
+const params = new URLSearchParams(location.search);
+const meetingId = params.get("m");   // 例: index.html?m=abcd1234
+const origin = location.origin;
+let currentMeeting = null
+if(!meetingId){
+  document.body.innerHTML = "<div class='message'>ミーティングIDが指定されていません</div>";
+  throw new Error("meetingId missing");
+}
+
+/* =========================
+   Socket接続
+========================= */
+const socket = io({
+  query:{
+    role:"participant",
+    meetingId: meetingId
+  }
+});
+
+
+let currentPollId = "";
+let voted = false;
+
+/* =========================
+   接続
+========================= */
+socket.on("disconnect", () => {
+  msg.innerText = "通信が切断されました（再接続中）";
+})
+
+socket.on("connect", () => {
+  msg.innerText = "しばらくお待ちください"
+})
+
+
+/* =========================
+   ミーティング情報受信
+========================= */
+socket.on("meeting", meeting=>{
+  if(!meeting) return
+  currentMeeting = meeting
+  if(meeting.title){
+    title.textContent = meeting.title;
+  }
+});
+
+/* =========================
+   アンケート表示
+========================= */
+socket.on("poll", ({ poll, options, answers, times})=>{
+  if(!poll){
+    msg.innerText = "しばらくお待ちください";
+    pollArea.style.display = "none";
+    return;
+  }
+  const isMultiAnswer = JSON.parse(poll.settings).multianswer == 1 
+  question.textContent = poll.question || "";
+
+  if(currentPollId !== poll.id || poll.status === "editing"){
+    currentPollId = poll.id;
+    voted = false; 
+  }
+
+    area.innerHTML = "";   
+  if(voted){
+    msg.innerText="送信ありがとうございました";
+  }else{
+    msg.innerText = "";
+  }
+
+  /* =========================
+     最優先：休止・編集中
+  ========================= */
+  if(currentMeeting && currentMeeting.status === "close"){
+    msg.innerText="この会議は終了しました";
+    pollArea.style.display = "none"
+    return
+  }
+
+  if(poll.status==="editing"){
+    msg.innerText="しばらくお待ちください";
+    pollArea.style.display = "none"
+    return; // ← 他の描画を止めるのが重要
+  }
+
+  /* =========================
+     停止中
+  ========================= */
+  if(poll.status==="stopping"){
+     msg.innerText="回答は終了しました";
+  }
+  pollArea.style.display = "block";
+  /* =========================
+     投票UI
+  ========================= */
+  if(poll.status==="voting" && (!voted||isMultiAnswer)){
+
+    /* =====================
+      選択式
+    ===================== */
+    if(poll.type==="choice" && !voted){
+      area.innerHTML = "";
+      options.sort((a,b)=> a.ordernum - b.ordernum).forEach(o=>{
+        if(isMultiAnswer){
+          const l=document.createElement("label");
+          l.style.display = "block";
+          l.style.marginBottom = "8px";
+          l.innerHTML = `<input type="checkbox" name="ans" value="${o.id}">${o.text}`
+          area.appendChild(l);
+        }else{
+          const b=document.createElement("button");
+          b.textContent=o.text;
+          b.onclick=()=>{ 
+            socket.emit("vote",o.id);
+            voted=true; 
+            area.innerHTML = "" 
+            msg.innerText="送信ありがとうございました"; 
+          };
+          area.appendChild(b);
+        }
+      });
+      if(isMultiAnswer){
+        const b=document.createElement("button");
+        b.textContent="回答する";
+        b.onclick = ()=>{
+          const selected = [...document.querySelectorAll("input[name='ans']:checked")].map(el=>el.value);
+          if(selected.length===0) return;
+          socket.emit("voteMulti", selected);
+          voted=true;
+          msg.innerText="送信ありがとうございました";
+          area.innerHTML = ""
+        }
+        area.appendChild(b);
+      }
+    };
+    
+
+    /* =====================
+      自由記載
+    ===================== */
+    if(poll.type==="text"){
+
+      area.innerHTML=`
+        <textarea id="messageArea" placeholder="こちらに入力してください"></textarea>
+        <button id="sendBtn">送信</button>
+      `;
+
+      document.getElementById("sendBtn").onclick=()=>{
+        const text = messageArea.value.trim();
+        if(!text) return;
+
+        socket.emit("submitText", text);
+        messageArea.value="";
+        
+        voted=true;
+        msg.innerText="送信ありがとうございました";
+        if(!isMultiAnswer) area.innerHTML="";
+      };
+    }
+
+    /* =====================
+      時間
+    ===================== */
+    if(poll.type==="time"){
+
+      area.innerHTML=`
+        <input type="time" id="timeInput">
+        <button id="sendBtn">送信</button>
+      `;
+
+      document.getElementById("sendBtn").onclick=()=>{
+        const time = document.getElementById("timeInput").value
+        if(!time) return
+
+        socket.emit("submitText", time);
+        
+        voted=true;
+        msg.innerText="送信ありがとうございました";
+        if(!isMultiAnswer) area.innerHTML="";
+      };
+    }
+  }
+
+    /* =========================
+     結果表示（投票中/停止中）
+  ========================= */
+  result.innerHTML = "";
+  resultRender(poll, options, answers, times)
+});
+
+/* =========================
+   設定受信（イベント名修正）
+========================= */
+socket.on("settings", rows=>{
+  const settings = {};
+  rows.forEach(r=> settings[r.setting_item] = r.setting);
+
+  if(settings.background) applyBackground(settings.background);
+  if(settings.handout) applyHandout(settings.handout);
+});
+
+function applyBackground(value){
+  if(!value) return;
+
+  document.body.style.background = value;
+
+  // 画像系だった場合の補助指定
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+  document.body.style.backgroundRepeat = "no-repeat";
+  document.body.style.backgroundAttachment = "fixed";
+}
+function applyHandout(value){
+  if(value){
+    handoutLink.setAttribute('href', value);
+    handoutLink.style.display = "block"
+  }else{
+    handoutLink.setAttribute('href', '');
+    handoutLink.style.display = "none"
+  }
+}
+
+
+/* =========================
+   エラー処理
+========================= */
+socket.on("invalidMeeting", ()=>{
+  document.body.innerHTML="<div class='message'>このミーティングは存在しません</div>";
+});
+
+</script>
+
+
+</body>
+</html>

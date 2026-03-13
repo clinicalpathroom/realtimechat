@@ -1,0 +1,94 @@
+#meetingSelect{
+  max-width:600px;
+  margin:60px auto;
+}
+
+.rightBottom{
+  padding:16px;
+  border-radius:8px;
+  overflow-y:auto;
+  background:#c9c9c9;
+}
+
+.urlBlock{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+  text-align:center;
+  margin-bottom:18px;
+}
+
+.urlBlock canvas{
+  width:120px !important;
+  height:120px !important;
+}
+
+.urlRow{
+  display:flex;
+  gap:8px;
+  margin-bottom:8px;
+}
+
+.urlRow input{flex:1;}
+
+.tabBar{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+}
+
+.tabBtn{
+  flex:1;
+  padding:10px;
+  border:none;
+  background:#0095d9;
+  color:#fff;
+  border-radius:6px 6px 0 0;
+}
+
+.tabBtn.active{
+  background:#2563eb;
+  font-weight:bold;
+}
+
+.tabContent{display:none;}
+.tabContent.active{display:block;}
+
+.statusBadge{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:.7rem;
+  font-weight:bold;
+  color:#fff;
+}
+
+.status-editing{background:#6b7280;}
+.status-voting{background:#16a34a;}
+.status-stopping{background:#dc2626;}
+
+.statusBtn{
+  border-radius:6px;
+  padding: 1px 1px;
+  width:8em;
+  height:1.5em;
+  font-size:small;
+}
+
+.screen-hidden{ background:#6b7280; }
+.screen-visible{ background:#16a34a; }
+.timegroupBtn{
+  border-radius:6px;
+  padding: 1px 1px;
+  width:2em;
+  height:1.5em;
+  font-size:small;
+}
+.timegroupBtn.active{
+  background:#16a34a;
+}
+
+.currentGrid{
+  display: grid;
+  grid-template-columns: repeat(2, 50%);
+}

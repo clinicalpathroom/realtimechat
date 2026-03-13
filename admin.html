@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>管理者画面</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/components.css">
+<link rel="stylesheet" href="/css/animation.css">
+<link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+
+<div class="container">
+
+  <div id="meetingSelect" class="card">
+    <h2>ミーティング管理</h2>
+    <input id="meetingName" placeholder="新しいミーティング名">
+    <button onclick="createMeeting()">新しいミーティングを開く</button>
+
+    <h3>過去のミーティング</h3>
+    <div id="meetingList"></div>
+
+    <input id="meetingIdInput" placeholder="ミーティングID">
+    <button onclick="openMeetingById()">IDで開く</button>
+  </div>
+
+  <div id="mainUI" style="display:none;">
+    <div class="left">
+      <h1>管理者UI</h1>
+      <div class="topRow">
+        <div class="group">
+          <input id="meetingTitle" placeholder="ミーティングタイトル">
+          <button onclick="changeTitle()">タイトル変更</button>
+          <button onclick="exportMeeting()">ミーティング出力</button>
+        </div>
+      </div>
+          <strong id="meetingStatusLabel"></strong>
+          <button id="toggleMeetingBtn" onclick="toggleMeeting()"></button>
+
+  <h2>質問作成</h2>
+
+  <div class="createRow">
+    <input id="question" placeholder="質問">
+
+    <select id="type" onchange="typechange()">
+      <option value="choice">選択式</option>
+      <option value="text">自由記載</option>
+      <option value="time">時間形式</option>
+    </select>
+
+    <div id="multiAnswer">
+      <input type="checkbox" id="multiAnswerBox" name="multiAnswer" value="multiAnswer"/>
+      <label>複数回答</label>
+    </div>
+    <textarea id="options" placeholder="選択肢（1行1つ）"></textarea>
+
+    <button onclick="createPoll()">作成</button>
+  </div>
+
+  <h2>設定</h2>
+        <label>背景色</label><input type="color" id="bgColor" value="#000000" style="padding: 0;">
+        <label>背景画像</label><input type="file" id="bgImage" accept="image/*">
+        <button onclick="applyBackground()">適用</button><br>
+        <label>配布資料</label><input type="file" id="handout">
+        <button onclick="applyHandout()">適用</button>
+
+  <div class="card" id="meetingInfoCard">
+    <h2>ミーティング情報</h2>
+      <div><strong>Meeting ID：</strong><span id="meetingIdDisplay"></span></div>
+
+      <div class="urlBlock">
+        <div>🛠 管理画面</div><div>👥 参加者画面</div><div>🖥 投影画面</div>
+        <div id="adminQR"></div><div id="participantQR"></div><div id="screenQR"></div>
+      </div>
+      <div>
+        <div class="urlRow">管理画面:<input id="adminUrl" readonly><button onclick="openPreview('adminUrl')">開く</button></div>
+        <div class="urlRow">参加画面:<input id="participantUrl" readonly><button onclick="openPreview('participantUrl')">開く</button></div>
+        <div class="urlRow">投影画面:<input id="screenUrl" readonly><button onclick="openPreview('screenUrl')">開く</button></div>
+      </div>
+
+    </div>
+  </div>
+
+    <div class="right">
+      <div class="rightTop">
+        <h2>現在の質問</h2>
+        <div class="card">
+          <strong>内容：</strong>
+          <select id="pollSelect" onchange="switchPoll(this.value)">
+            <option value="">質問を選択してください</option>
+          </select>
+          <button id="pollExportBtn" onclick="pollExport()">CSV出力</button>
+          <button id="pollDeleteBtn" class = "delBtn" onclick="pollDelete()">質問削除</button>
+          <div id="current"></div>
+        </div>
+      </div>
+
+      <div class="rightBottom">
+
+        <!-- タブボタン -->
+        <div class="tabBar">
+          <button class="tabBtn active" onclick="switchTab('previewTab', this)">画面</button>
+          <button class="tabBtn" onclick="switchTab('clientsTab', this)">接続者</button>
+          <button class="tabBtn" onclick="switchTab('answersTab', this)">回答</button>
+        </div>
+
+        <!-- ▼ タブ：画面プレビュー -->
+        <div id="previewTab" class="tabContent active">
+          <div class="previewWrap">
+            <div class="phonePreview">
+              <div class="previewLabel">参加者画面　　結果の反映:<input id="previewToggle" type="checkbox" class="toggle" style="--size:16px;" onchange="updatePreviewFrame()"></div>
+              <iframe id="participantFrame"></iframe>
+            </div>
+            <div class="screenPreview">
+              <div class="previewLabel">投影画面</div>
+              <iframe id="screenFrame"></iframe>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▼ タブ：接続者一覧 -->
+        <div id="clientsTab" class="tabContent">
+          <h3>現在の接続者</h3>
+          <div id="clientList">接続者情報を取得中...</div>
+        </div>
+
+        <!-- ▼ タブ：回答一覧 -->
+        <div id="answersTab" class="tabContent">
+          <h3 id="typeTitle">結果が表示されます</h3>
+          <div id="list"></div>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+</div>
+
+<div id="answerToastArea"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const origin = location.origin;
+  let socket = io();  // ← 先に接続だけ作る（meeting未参加）
+  let meetingId = params.get("m");   // 例: admin.html?m=abcd1234
+  let currentMeeting = null;
+  let currentPoll = null;
+  let optionsData = [];
+  let answersData = [];
+  let lastAnswerCount = 0;
+
+  const pool_status_master = { editing:"準備中", voting:"回答中", stopping:"停止中" };
+  const pool_status_btn_master = { editing:"回答開始", voting:"回答準備", stopping:"回答準備" };
+  const meeting_status_master = { open:"会議中", close:"終了" };
+  const type_master = { choice:"選択式", text:"自由記載" ,time:"時間形式"};
+  const screen_master = { 0:"非表示", 1:"表示" };
+  const type_title_master = { choice:"選択式", text:"自由記載(承認制)", time:"時間形式"};
+  const multi_answer_master = {1:"複数回答可",0:"単一回答" }
+  const time_group_master = {1:"1m",5:"5m",10:"10m",15:"15m",20:"20m",30:"30m",60:"1H",120:"2H",240:"4H",360:"6H",480:"8H",720:"12H" }
+  
+  const MAX_VISIBLE_ANSWERS = 100; // ← 表示上限
+
+  socket.on("meetingCreated", m => {
+    startMeeting(m.id);
+  });
+
+  socket.on("invalidMeeting", () => {
+    alert("このミーティングIDは存在しません");
+    location.reload();
+  });
+
+  if(meetingId){
+    meetingSelect.style.display = "none";
+    mainUI.style.display = "grid";
+    connectToMeeting(meetingId);
+  }else{
+    meetingSelect.style.display = "block";
+    mainUI.style.display = "none";
+  }
+
+
+  function connectToMeeting(id){
+    meetingId = id;
+    socket.disconnect(); // 既存接続を切る
+    socket = io({ query: { role:"admin", meetingId } }); // 再接続
+    
+    registerSocketEvents();
+    meetingIdDisplay.textContent = meetingId;
+
+    participantFrame.src = `${origin}/index.html?m=${meetingId}&preview=1&t=` + Date.now();
+    screenFrame.src      = `${origin}/screen.html?m=${meetingId}&t=` + Date.now();
+
+    const adminURL       = `${origin}/admin.html?m=${meetingId}`;
+    const participantURL = `${origin}/index.html?m=${meetingId}`;
+    const screenURL      = `${origin}/screen.html?m=${meetingId}`;
+
+    adminUrl.value = adminURL;
+    participantUrl.value = participantURL;
+    screenUrl.value = screenURL;
+
+    // QR生成（これは毎回OK）
+    adminQR.innerHTML = "";
+    participantQR.innerHTML = "";
+    screenQR.innerHTML = "";
+
+    new QRCode(adminQR,       { text: adminURL, width:128, height:128 });
+    new QRCode(participantQR, { text: participantURL, width:128, height:128 });
+    new QRCode(screenQR,      { text: screenURL, width:128, height:128 });
+
+  }
+
+  function updatePreviewFrame(){
+    const base = `${origin}/index.html?m=${meetingId}`;
+    const url = previewToggle.checked
+      ? base
+      : base + "&preview=1";
+
+    // キャッシュ対策
+    participantFrame.src = url + "&t=" + Date.now();
+
+  }
+
+  function registerSocketEvents(){
+    socket.off(); // ★ 全解除
+    socket.on("connect", () => {
+      console.log("🟢 socket connected", socket.id);
+    });
+
+    socket.on("meeting", meeting => {
+      if(!meeting) return;
+      currentMeeting = meeting
+
+      meetingTitle.value = meeting.title;
+      meetingStatusLabel.innerText = meeting_status_master[meeting.status]
+
+      if(meeting.status==="open"){
+        toggleMeetingBtn.innerHTML = "ミーティングを終了する";
+      }else if(meeting.status==="close"){
+        toggleMeetingBtn.innerHTML = "ミーティングを再開する";
+      }
+      render()
+      
+    });
+
+    socket.on("settings", rows=>{
+      const bg = rows.find(r=>r.setting_item==="background");
+    });
+
+    socket.on("pollList", pollList=>{
+      renderPollList(pollList)
+    });
+
+    socket.on("poll", data => {
+      if (!data?.poll) return;
+
+      const oldPoll = currentPoll;
+      currentPoll = data.poll;
+
+      const oldAnswers = answersData ? answersData : [];
+      const newAnswers = data.answers ? data.answers : [];
+      optionsData = data.options;
+
+      const samePoll = oldPoll && oldPoll.id === currentPoll.id;
+
+      // 質問が変わった
+      if (!samePoll) {
+        lastAnswerCount = newAnswers.length;
+        answersData = newAnswers;
+        if ([...pollSelect.options].some(o => o.value === currentPoll.id)) {
+          pollSelect.value = currentPoll.id;
+        }
+        return render();
+      }
+
+      // poll 状態 or 表示変更
+      if (
+        currentPoll.status !== oldPoll.status ||
+        currentPoll.visible !== oldPoll.visible ||
+        currentPoll.settings !== oldPoll.settings
+      ) {
+        return render();
+      }
+
+    // 件数同じ（表示だけ変化）
+    if (oldAnswers.length === newAnswers.length) {
+      answersData = newAnswers;
+      if(currentPoll.type === "choice"){
+        render();
+      }else if(list.children.length > 0){
+        updateAnswerVisibilityOnly();
+      }else{
+        render();
+      }
+      return;
+    }
+    // 回答が減った（削除・一括非表示など）
+    if (newAnswers.length < oldAnswers.length) {
+      lastAnswerCount = newAnswers.length;
+      answersData = newAnswers;
+      return render();
+    }
+      // 新規回答追加
+      if (newAnswers.length > lastAnswerCount) {
+
+        const added = newAnswers.slice(lastAnswerCount);
+
+        answersData = newAnswers;
+        lastAnswerCount = newAnswers.length;
+
+        added.forEach(a => {
+          showFloatingAnswer(a);
+        });
+
+        return render();
+      }
+    });
+
+    socket.on("clients", clients => {
+      const box = document.getElementById("clientList");
+      if(!clients || clients.length === 0){
+        box.innerHTML = "接続者はいません";
+        return;
+      }
+
+      box.innerHTML = clients.map(c =>
+        `<div class="card" style="margin-bottom:8px">
+          <strong>${c.name || "匿名"}</strong><br>
+          <small>${c.role}</small>
+        </div>`
+      ).join("");
+    });
+    socket.on("meetingDeleted", () => {
+      alert("ミーティングが削除されました");
+      location.reload();
+    })
+
+    socket.on("disconnect", () => {
+      console.log("🔴 socket disconnected");
+    });
+
+  }
+
+
+  function createMeeting(){
+    if(!meetingName.value.trim()) return;
+    socket.emit("createMeeting", meetingName.value);
+  }
+
+  function openMeetingById(){
+    const id = meetingIdInput.value.trim();
+    if(!id) return;
+    redirectURL(id);   // ← 直接接続しない
+  }
+
+  function redirectURL(meetingId){
+    const origin = location.origin;
+    const adminURL = `${origin}/admin.html?m=${meetingId}`;
+    window.location.replace(adminURL)
+  }
+
+  function startMeeting(id){
+    if(!id) return;
+    redirectURL(id);   // ← 常にURLへ遷移させる
+  }
+
+
+function renderPollList(pollList){
+
+  if(!pollList) return;
+
+  pollSelect.innerHTML = `<option value="">質問を選択してください</option>`;
+
+  pollList.forEach(p=>{
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.question;
+    pollSelect.appendChild(opt);
+  });
+
+  if(currentPoll){
+    pollSelect.value = currentPoll.id;
+  }
+  
+}
+
+  function switchPoll(id){
+    if(!id) return;
+    socket.emit("switchPoll", id);
+  }
+
+  function createPoll(){
+    socket.emit("createPoll", {
+      question: question.value,
+      type: type.value,
+      options: options.value.split("\n").filter(v=>v),
+      settings: {"multianswer":multiAnswerBox.checked ? 1 : 0,"timegroup":1}
+    });
+    question.value = "";
+    options.value = "";
+    multiAnswerBox.checked = false;
+  }
+
+  function pollStatus(s){ socket.emit("setPollStatus", s); }
+  function visibleSc(){ socket.emit("toggleScreen"); }
+  function setGroupTime(t){ socket.emit("setGroupTime",t); }
+  function closeMeeting(){ socket.emit("setMeetingStatus", "closed");}
+  function toggleMeeting(){ socket.emit("toggleMeeting"); }
+  function togglePollStatus(){ socket.emit("togglePollStatus"); }
+
+  function applyBackground(){
+    const color = document.getElementById("bgColor").value;
+    const fileInput = document.getElementById("bgImage");
+
+    // 画像が選択されている場合は画像優先
+    if(fileInput.files.length > 0){
+      const reader = new FileReader();
+      reader.onload = function(e){
+        socket.emit("updateSetting",{
+          item:"background",
+          value:`url(${e.target.result}) center/cover no-repeat`
+        });
+      };
+      reader.readAsDataURL(fileInput.files[0]);
+    }else{
+      socket.emit("updateSetting",{
+        item:"background",
+        value: color
+      });
+    }
+  }
+
+  async function applyHandout(){
+
+    const fileInput = document.getElementById("handout");
+    if(!fileInput.files.length) return;
+
+    const fd = new FormData();
+    fd.append("handout", fileInput.files[0]);
+    fd.append("meetingId", meetingId);
+
+    const res = await fetch("/api/upload/handout",{
+      method:"POST",
+      body:fd
+    });
+
+    if(!res.ok){
+      alert("アップロード失敗");
+      return;
+    }
+
+    const json = await res.json();
+
+    socket.emit("updateSetting",{
+      item:"handout",
+      value: json.url
+    });
+
+    alert("アップロード完了");
+  }
+  function changeTitle(){
+    if(!meetingTitle.value.trim()) return;
+    socket.emit("updateTitle", {title:meetingTitle.value.trim()});
+  }
+
+
+  function render(){
+
+  current.innerHTML="";
+
+  if(!currentPoll || !currentMeeting) return;
+  const settings = JSON.parse(currentPoll.settings || "{}");
+  const multiAnser = settings.multianswer
+  const timeGroup = settings.timegroup
+  current.innerHTML=`
+  <div class="currentGrid">
+    <div class="grid__item">
+      種類：${type_master[currentPoll.type]}(${multi_answer_master[multiAnser]})<br>
+
+      状態：
+      <span class="statusBadge status-${currentPoll.status}">
+        ${pool_status_master[currentPoll.status]}
+      </span>
+
+      <button id="togglePollStatusBtn" class="statusBtn" onclick="togglePollStatus()">
+        ${pool_status_btn_master[currentPoll.status]}
+      </button>
+      <button id="stopPollStatusBtn" class="statusBtn" onclick="pollStatus('stopping')">
+        回答終了
+      </button><br>
+
+      画面表示：
+      <span class="statusBadge ${currentPoll.visible ? 'screen-visible' : 'screen-hidden'}">
+        ${screen_master[currentPoll.visible]}
+      </span>
+
+      <button class="statusBtn" onclick="visibleSc()">
+        結果を${screen_master[currentPoll.visible^1]}
+      </button>
+    </div>
+    <div class="grid__item">
+      集計方式：
+      ${Object.keys(time_group_master).map(t => 
+      `<button class="timegroupBtn ${timeGroup==t ? 'active' : ''}" onclick="setGroupTime(${t})">${time_group_master[t]}</button> `
+      ).join("")}
+    </div>
+  </div>
+  `;
+
+  // ★ 生成後に取得する
+  const toggleBtn = document.getElementById("togglePollStatusBtn");
+  const stopBtn   = document.getElementById("stopPollStatusBtn");
+
+  if(currentMeeting.status==="open"){
+    toggleBtn.style.display = "inline";
+    stopBtn.style.display = "inline";
+  }else{
+    toggleBtn.style.display = "none";
+    stopBtn.style.display = "none";
+  }
+
+  typeTitle.textContent = type_title_master[currentPoll.type];
+  renderResultsToAdmin();
+}
+  function renderResultsToAdmin(){
+    list.innerHTML = "";
+    const isAtBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 10;
+
+    if(!currentPoll) return;
+
+    /* 自由記載 */
+    if(currentPoll.type === "text"){
+
+
+      const recentAnswers = answersData.reverse();
+
+      const fragment = document.createDocumentFragment();
+
+      recentAnswers.forEach(a=>{
+        const card = document.createElement("div");
+        card.className = "card";
+        card.style.marginBottom = "8px";
+        card.innerHTML = `
+          <button class = "authBtn" data-id="${a.id}">
+            ${a.visible ? "非表示" : "承認"}
+          </button>
+          <button class = "delBtn" data-id="${a.id}">削除</button>
+          <div style="opacity:${a.visible?1:.4};margin-top:6px">${escapeHtml(a.text)}</div>
+        `;
+
+        card.querySelector(".authBtn").onclick = () => {
+          socket.emit('toggleAnswerVisible', a.id);
+        };
+
+        card.querySelector(".delBtn").onclick = () => {
+          if(confirm("本当に削除しますか？")){
+            socket.emit("deleteAnswer", a.id);
+          }
+        };
+
+        fragment.appendChild(card);
+      });
+
+      list.appendChild(fragment);
+      if(isAtBottom){
+      list.scrollTop = list.scrollHeight;
+      }
+    }
+    /* 選択式 */
+    if(currentPoll.type === "choice"){
+      const total = optionsData.reduce((sum,o)=>sum+o.votes,0) || 1;
+      optionsData.forEach(o=>{
+        const percent = Math.round((o.votes/total)*100);
+        const row = document.createElement("div");
+        row.className = "barRow";
+        row.innerHTML = `
+          <div class="barLabel">${o.text}</div>
+          <div class="barBg">
+            <div class="barFill" style="width:${percent}%"></div>
+          </div>
+          <div class="barCount">${o.votes} 票（${percent}%）</div>
+        `;
+        list.appendChild(row);
+      })
+    }
+  }
+
+  function updateAnswerVisibilityOnly(){
+  answersData.forEach(a=>{
+    const btn = document.querySelector(`button[data-id="${a.id}"]`);
+    if(!btn) return;
+
+    // ボタン文言更新
+    btn.textContent = a.visible ? "非表示" : "承認";
+
+    // テキストの透明度更新
+    const textDiv = btn.nextElementSibling.nextElementSibling;
+    if(textDiv){
+      textDiv.style.opacity = a.visible ? 1 : .4;
+    }
+  });
+}
+
+  function openPreview(inputId){
+    const url = document.getElementById(inputId).value;
+    if(!url) return alert("URLがまだ生成されていません");
+    window.open(url, "_blank");
+  }
+
+
+  function typechange(){
+    options.style.display=(type.value==="choice")?"block":"none";
+  }
+
+  function switchTab(tabId, btn){
+    document.querySelectorAll(".tabContent").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".tabBtn").forEach(b=>b.classList.remove("active"));
+
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+  }
+
+  function escapeHtml(str){
+  if(!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+  }
+
+  function showFloatingAnswer(latest){
+
+    const toast = document.createElement("div");
+    toast.className = "toast";
+
+    // タイマー予約（10秒後に自動削除）
+    const timer = setTimeout(() => {
+      toast.remove();
+    }, 10000);
+
+    // 共通の削除処理（タイマーも止める）
+    const removeToast = () => {
+      clearTimeout(timer); // 10秒待たずに消す場合はタイマーを解除
+      toast.remove();
+    };
+    // タイトル行（×ボタン含む）
+    const header = document.createElement("div");
+    header.className = "toast-header";
+
+    const toastTitle = document.createElement("div");
+    toastTitle.className = "toast-title";
+    toastTitle.innerText = "New Answer!!";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.className = "toast-close";
+    closeBtn.innerHTML = "&times;"; // ×
+    closeBtn.onclick = removeToast;
+
+    header.appendChild(toastTitle);
+    header.appendChild(closeBtn);
+
+    // 本文
+    const toastbody = document.createElement("div");
+    toastbody.className ="toast-body";
+    toastbody.innerHTML = escapeHtml(latest.text).replace(/\n/g, "<br>");
+
+    // 承認/非表示ボタン
+    const actionBtn = document.createElement("button");
+    actionBtn.className = "toast-action";
+    actionBtn.innerText = latest.visible ? "非表示" : "承認";
+    actionBtn.onclick = () => {
+      socket.emit('toggleAnswerVisible', latest.id);
+      removeToast(); // 送信したらトーストを消してタイマー解除
+    };
+
+    toastbody.appendChild(actionBtn);
+
+    toast.appendChild(header);
+    toast.appendChild(toastbody);
+    answerToastArea.appendChild(toast);
+
+  }
+
+  function exportMeeting(){
+    if(!meetingId) return;
+    window.open(`/api/meetings/${meetingId}/export`, '_blank');
+  }
+
+  function pollExport(){
+    if(!currentPoll) return;
+    window.open(`/api/polls/${currentPoll.id}/export`, '_blank');
+  }
+  
+  function meetingDelete(){
+    if(!meetingId) return;
+    if(confirm("本当に削除しますか？")){
+      socket.emit("deleteMeeting", meetingId);
+    }
+  }
+
+  function pollDelete(){
+    if(!currentPoll) return;
+    if(confirm("本当に削除しますか？")){
+      socket.emit("deletePoll", currentPoll.id);
+    }
+  }
+
+</script>
+</body>
+</html>
